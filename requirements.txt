@@ -1,0 +1,4 @@
+customtkinter
+google-generativeai
+python-dotenv
+# Add AI libraries as needed (e.g., openai, transformers)

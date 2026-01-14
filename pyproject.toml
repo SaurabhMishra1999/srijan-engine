@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "srijan-engine"
+version = "0.1.0"
+description = "Advanced AI Text-to-Movie software"
+dependencies = ["customtkinter"]
+requires-python = ">=3.14"
