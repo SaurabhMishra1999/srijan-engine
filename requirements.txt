@@ -1,4 +1,11 @@
 customtkinter
-google-generativeai
+google-genai
 python-dotenv
+sounddevice
+soundfile
+gtts
+pyttsx3
+librosa
+numpy
+scipy
 # Add AI libraries as needed (e.g., openai, transformers)
