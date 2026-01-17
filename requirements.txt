@@ -8,4 +8,8 @@ pyttsx3
 librosa
 numpy
 scipy
+Pillow
+opencv-python
+mediapipe
+psutil
 # Add AI libraries as needed (e.g., openai, transformers)
