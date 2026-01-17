@@ -1,15 +1,38 @@
-customtkinter
+customtkinter>=5.0
 google-genai
 python-dotenv
-sounddevice
-soundfile
-gtts
-pyttsx3
-librosa
-numpy
-scipy
-Pillow
-opencv-python
-mediapipe
-psutil
-# Add AI libraries as needed (e.g., openai, transformers)
+sounddevice>=0.4.6
+soundfile>=0.12.0
+gtts>=2.3.0
+pyttsx3>=2.90
+librosa>=0.10.0
+numpy>=1.23.0
+scipy>=1.9.0
+Pillow>=10.0.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+psutil>=5.9.0
+
+# Audio Processing & Lip-Sync
+pydub>=0.25.1
+wav2lip>=0.0.1
+moviepy>=1.0.3
+
+# VFX & Visual Effects
+imageio>=2.9.0
+imageio-ffmpeg>=0.4.8
+scikit-image>=0.20.0
+
+# ML & Computer Vision
+torch>=2.0.0
+torchvision>=0.15.0
+tensorflow>=2.12.0
+transformers>=4.30.0
+
+# Additional utilities
+resampy>=0.4.2
+soundata>=0.1.0
+numba>=0.57.0
+
+# Blender Python API (note: blender is included separately in the project)
+# bpy is installed with Blender itself
