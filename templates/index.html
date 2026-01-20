@@ -559,6 +559,15 @@
                     <button class="btn" onclick="showApiDocs()">View Docs</button>
                 </div>
             </div>
+
+            <!-- Output Files Section -->
+            <div style="margin-top: 40px; padding: 20px; background: rgba(15, 23, 42, 0.8); border: 2px solid #3b82f6; border-radius: 12px;">
+                <h3 style="color: #60a5fa; margin-top: 0;">📹 Generated Files</h3>
+                <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 15px;">View and download all generated videos, audio, and subtitle files</p>
+                <button class="btn" onclick="loadGeneratedFiles()">📂 Refresh Files</button>
+                <button class="btn btn-secondary" onclick="openOutputFolder()">📁 Open Folder</button>
+                <div id="filesList" style="margin-top: 15px; max-height: 300px; overflow-y: auto;"></div>
+            </div>
         </div>
     </div>
 
@@ -1253,7 +1262,74 @@
                     console.log('✅ Server Status:', data);
                 })
                 .catch(err => console.error('❌ Connection Error:', err));
+            
+            // Load generated files on page load
+            loadGeneratedFiles();
         });
+
+        // ===== FILE MANAGEMENT FUNCTIONS =====
+        async function loadGeneratedFiles() {
+            try {
+                const response = await fetch('/api/output-files');
+                const data = await response.json();
+
+                if (!data.success) {
+                    document.getElementById('filesList').innerHTML = '<p style="color: #ef4444;">Error loading files</p>';
+                    return;
+                }
+
+                const files = data.files;
+                let html = `<div style="color: #cbd5e1; font-size: 12px; margin-bottom: 10px;">Total Size: ${files.total_size_mb} MB</div>`;
+
+                // Videos
+                if (files.videos.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong style="color: #60a5fa;">🎬 Videos</strong>';
+                    files.videos.forEach(file => {
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(16, 185, 129, 0.1); margin: 5px 0; border-radius: 4px; border-left: 3px solid #10b981;">
+                            <span style="color: #86efac; font-size: 12px;">${file.name} (${file.size_mb} MB)</span>
+                            <a href="${file.url}" style="background: #10b981; color: white; padding: 4px 8px; border-radius: 3px; text-decoration: none; font-size: 11px;">Download</a>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                // Audio
+                if (files.audio.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong style="color: #60a5fa;">🎤 Audio Files</strong>';
+                    files.audio.forEach(file => {
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(59, 130, 246, 0.1); margin: 5px 0; border-radius: 4px; border-left: 3px solid #3b82f6;">
+                            <span style="color: #93c5fd; font-size: 12px;">${file.name} (${file.size_mb} MB)</span>
+                            <a href="${file.url}" style="background: #3b82f6; color: white; padding: 4px 8px; border-radius: 3px; text-decoration: none; font-size: 11px;">Download</a>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                // Subtitles
+                if (files.subtitles.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong style="color: #60a5fa;">📝 Subtitles</strong>';
+                    files.subtitles.forEach(file => {
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(168, 85, 247, 0.1); margin: 5px 0; border-radius: 4px; border-left: 3px solid #a855f7;">
+                            <span style="color: #d8b4fe; font-size: 12px;">${file.name} (${file.size_mb} MB)</span>
+                            <a href="${file.url}" style="background: #a855f7; color: white; padding: 4px 8px; border-radius: 3px; text-decoration: none; font-size: 11px;">Download</a>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                if (files.videos.length === 0 && files.audio.length === 0 && files.subtitles.length === 0) {
+                    html += '<p style="color: #94a3b8; font-style: italic;">No files generated yet. Create a movie to see files here!</p>';
+                }
+
+                document.getElementById('filesList').innerHTML = html;
+            } catch (error) {
+                document.getElementById('filesList').innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
+            }
+        }
+
+        function openOutputFolder() {
+            alert('Output folder location:\ne:\\Srijan_Engine\\output\\\n\nOpen this folder in Windows Explorer to access your generated files.');
+        }
     </script>
 </body>
 </html>

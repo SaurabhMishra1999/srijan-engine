@@ -1,0 +1,94 @@
+{
+  "scene_name": "Test Warehouse",
+  "scene_id": "test_wh_001",
+  "description": "Test warehouse scene",
+  "duration": 5.0,
+  "frame_rate": 30,
+  "resolution": [
+    1920,
+    1080
+  ],
+  "lighting": {
+    "ambient_strength": 0.5,
+    "sun_direction": [
+      1,
+      1,
+      1
+    ],
+    "sun_strength": 1.5
+  },
+  "camera": {
+    "location": [
+      10,
+      10,
+      5
+    ],
+    "rotation": [
+      1.1,
+      0,
+      0.785
+    ]
+  },
+  "assets": [
+    {
+      "asset_id": "forklift_001",
+      "name": "Standard Forklift",
+      "asset_type": "forklift",
+      "model_path": "E:\\Srijan_Engine\\assets\\models\\models\\forklift.blend",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "texture_path": null,
+      "material_name": null,
+      "physics_enabled": true,
+      "animation_path": null,
+      "metadata": {
+        "capacity": "2500kg",
+        "lift_height": "6m",
+        "brand": "Toyota"
+      }
+    },
+    {
+      "asset_id": "container_truck_001",
+      "name": "Container Truck",
+      "asset_type": "container_truck",
+      "model_path": "E:\\Srijan_Engine\\assets\\models\\models\\container_truck.blend",
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "position": [
+        5,
+        0,
+        0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "texture_path": null,
+      "material_name": null,
+      "physics_enabled": true,
+      "animation_path": null,
+      "metadata": {
+        "capacity": "20000kg",
+        "container_size": "40ft",
+        "engine_sound": "truck_engine.wav"
+      }
+    }
+  ]
+}

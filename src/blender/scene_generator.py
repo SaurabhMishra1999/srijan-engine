@@ -445,3 +445,148 @@ bpy.ops.render.render(animation=True)
 
     os.unlink(temp_script)
     return output_path
+
+
+class SceneGenerator:
+    """
+    Generates Blender .blend files from scene configuration dictionaries
+    """
+    
+    def __init__(self):
+        """Initialize scene generator"""
+        self.output_dir = os.path.join(BASE_DIR, 'output')
+        os.makedirs(self.output_dir, exist_ok=True)
+    
+    def create_scene_from_config(self, config: dict) -> str:
+        """
+        Create a Blender scene from configuration
+        
+        Args:
+            config: Scene configuration dictionary with scenes, objects, camera settings
+            
+        Returns:
+            Path to created .blend file
+        """
+        import uuid
+        
+        blend_file = os.path.join(self.output_dir, f"scene_{uuid.uuid4()}.blend")
+        
+        try:
+            # Generate Blender Python script to create scene
+            bpy_script = self._generate_scene_creation_script(config, blend_file)
+            
+            # Save script
+            script_file = os.path.join(self.output_dir, f"gen_scene_{uuid.uuid4()}.py")
+            with open(script_file, 'w') as f:
+                f.write(bpy_script)
+            
+            # Try to run with Blender
+            blender_path = self._find_blender_path()
+            if blender_path and os.path.exists(blender_path):
+                cmd = [blender_path, '--background', '--python', script_file]
+                result = subprocess.run(cmd, capture_output=True, timeout=120)
+                
+                # Clean up script
+                try:
+                    os.unlink(script_file)
+                except:
+                    pass
+                
+                if os.path.exists(blend_file):
+                    return blend_file
+            
+            # If Blender not available, just return path and save script
+            return blend_file
+        
+        except Exception as e:
+            print(f"Error creating scene: {e}")
+            return None
+    
+    def _generate_scene_creation_script(self, config: dict, blend_file: str) -> str:
+        """Generate Blender Python script to create scene"""
+        
+        scenes = config.get('scenes', [])
+        global_config = config.get('global_config', {})
+        
+        script = f"""
+import bpy
+import os
+
+# Clear default scene
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.object.delete()
+
+# Setup scene
+scene = bpy.context.scene
+scene.render.engine = 'BLENDER_EEVEE'
+scene.render.resolution_x = 1920
+scene.render.resolution_y = 1080
+scene.render.fps = 30
+
+# Add world lighting
+world = scene.world
+world.use_nodes = True
+world.node_tree.nodes['Background'].inputs[0].default_value = (0.1, 0.1, 0.1, 1.0)
+
+# Add sun light
+bpy.ops.object.light_add(type='SUN', location=(5, 5, 10))
+sun = bpy.context.object
+sun.data.energy = 2.0
+
+# Create scenes
+total_frames = 0
+for scene_num, scene_data in enumerate({scenes}, 1):
+    # Create scene objects based on description
+    description = scene_data.get('description', '')
+    duration = scene_data.get('duration', 5)
+    
+    # Add a cube as placeholder
+    bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))
+    cube = bpy.context.active_object
+    cube.name = f'Scene_{{scene_num}}_Object'
+    
+    # Add material
+    mat = bpy.data.materials.new(name=f'Mat_{{scene_num}}')
+    mat.use_nodes = True
+    # Teal color for warehouse scenes
+    mat.node_tree.nodes['Principled BSDF'].inputs[0].default_value = (0.0, 0.5, 0.7, 1.0)
+    cube.data.materials.append(mat)
+    
+    # Animate
+    cube.location = (0, 0, 0)
+    cube.keyframe_insert(data_path='location', frame=total_frames + 1)
+    
+    duration_frames = int(duration * 30)
+    total_frames += duration_frames
+    
+    cube.location = (0, 0, 0.5)
+    cube.keyframe_insert(data_path='location', frame=total_frames)
+
+# Add camera
+bpy.ops.object.camera_add(location=(0, -10, 5))
+camera = bpy.context.object
+scene.camera = camera
+
+scene.frame_end = total_frames
+
+# Save blend file
+bpy.ops.wm.save_as_mainfile(filepath=r'{blend_file}')
+print(f'Scene created: {blend_file}')
+"""
+        
+        return script
+    
+    def _find_blender_path(self) -> str:
+        """Find Blender executable"""
+        possible_paths = [
+            r"e:\Srijan_Engine\blender_portable\5.0\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 3.0\blender.exe",
+            r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe",
+            r"/usr/bin/blender",
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        
+        return None

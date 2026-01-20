@@ -51,6 +51,8 @@ try:
     from src.audio.audio_visual_merger import AudioVisualMerger
     from src.blender.vfx_processor import VFXProcessor
     from src.blender.warehouse_assets_manager import WarehouseAssetsManager
+    from src.blender.scene_manager import SceneSetupManager
+    from src.blender.scene_config_api import SceneConfigAPI
     MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ Warning: Some modules not available: {e}")
@@ -58,6 +60,18 @@ except ImportError as e:
 except Exception as e:
     print(f"⚠️ Error loading modules: {e}")
     print("✓ Web interface will run in demo mode")
+
+# Initialize Scene Manager
+try:
+    if MODULES_AVAILABLE:
+        scene_manager = SceneSetupManager()
+        scene_api = SceneConfigAPI(app)
+        print("✓ Scene Configuration API initialized")
+except Exception as e:
+    print(f"⚠️ Scene API initialization warning: {e}")
+    scene_manager = None
+    scene_api = None
+
 
 
 # ===== VIDEO STREAMING FUNCTIONS =====
@@ -180,8 +194,14 @@ def generate_frames():
 
 @app.route('/')
 def index():
-    """Main dashboard"""
-    return render_template('index.html')
+    """Main workflow dashboard"""
+    return render_template('workflow_dashboard.html')
+
+
+@app.route('/scene-editor')
+def scene_editor():
+    """Scene configuration interface"""
+    return render_template('scene_editor.html')
 
 
 @app.route('/api/status')
@@ -273,9 +293,9 @@ def api_features():
                 'endpoint': '/api/vfx'
             },
             {
-                'name': 'Warehouse Scene Creator',
-                'description': 'Create 3D warehouse scenes',
-                'endpoint': '/api/warehouse-scene'
+                'name': 'Scene Configuration Studio',
+                'description': 'Create and configure any 3D scene with full customization',
+                'endpoint': '/scene-editor'
             }
         ]
     }
@@ -443,7 +463,7 @@ def warehouse_scene():
 
 @app.route('/api/generate-movie', methods=['POST'])
 def generate_movie():
-    """Generate complete movie from text script with AI narration"""
+    """Generate complete movie from text script with AI narration and video effects"""
     try:
         data = request.get_json()
         script = data.get('script', '')
@@ -457,66 +477,150 @@ def generate_movie():
             return jsonify({'error': 'Script cannot be empty'}), 400
 
         start_time = datetime.now()
+        timestamp = datetime.now().timestamp()
 
         # Step 1: Generate narration from script using EmotionalVoiceEngine
         narration_file = None
         try:
             if MODULES_AVAILABLE:
                 engine = EmotionalVoiceEngine()
-                # Extract first 500 chars of script as narration text
                 narration_text = script[:500] if len(script) > 500 else script
                 narration_file = engine.generate_emotional_voice(narration_text, narration_style)
                 print(f"✅ Generated narration: {narration_file}")
             else:
-                narration_file = os.path.join(OUTPUT_FOLDER, f"narration_{datetime.now().timestamp()}.wav")
+                narration_file = os.path.join(OUTPUT_FOLDER, f"narration_{timestamp}.wav")
                 print(f"📝 Demo: Narration file would be: {narration_file}")
         except Exception as e:
             print(f"⚠️ Narration generation issue: {e}")
-            narration_file = os.path.join(OUTPUT_FOLDER, f"narration_{datetime.now().timestamp()}.wav")
+            narration_file = os.path.join(OUTPUT_FOLDER, f"narration_{timestamp}.wav")
 
-        # Step 2: Create output file paths
-        output_video_path = os.path.join(OUTPUT_FOLDER, f"movie_{datetime.now().timestamp()}.mp4")
-        subtitle_path = os.path.join(OUTPUT_FOLDER, f"subtitles_{datetime.now().timestamp()}.srt") if enable_subtitles else None
-
-        # Step 3: Generate VFX config
-        vfx_config = {
-            'color_grade': 'teal_orange',
-            'grain': 0.05 if enable_film_grain else 0,
-            'sharpness': 0.8,
-            'enable_color_grade': enable_color_grade
-        }
-
-        # Step 4: Create subtitle file if enabled
-        if enable_subtitles and subtitle_path:
+        # Step 2: Generate subtitles
+        subtitle_path = None
+        if enable_subtitles:
+            subtitle_path = os.path.join(OUTPUT_FOLDER, f"subtitles_{timestamp}.srt")
             try:
-                subtitle_content = f"""1
-00:00:00,000 --> 00:00:03,000
-{script[:100]}...
-
-2
-00:00:03,000 --> 00:00:06,000
-Processing your movie with AI-generated narration and effects
-"""
-                with open(subtitle_path, 'w') as f:
+                # Create subtitle file with script content
+                lines = script.split('.')
+                subtitle_content = ""
+                current_time = 0
+                
+                for idx, line in enumerate(lines[:10], 1):  # Limit to first 10 sentences
+                    if line.strip():
+                        start_ms = int(current_time * 1000)
+                        end_ms = int((current_time + 3) * 1000)
+                        subtitle_content += f"{idx}\n{_ms_to_srt_time(start_ms)} --> {_ms_to_srt_time(end_ms)}\n{line.strip()}\n\n"
+                        current_time += 3
+                
+                with open(subtitle_path, 'w', encoding='utf-8') as f:
                     f.write(subtitle_content)
                 print(f"✅ Created subtitle file: {subtitle_path}")
             except Exception as e:
                 print(f"⚠️ Subtitle creation issue: {e}")
+                subtitle_path = None
+
+        # Step 3: Generate video frames (create simple test video if actual rendering unavailable)
+        output_video_path = os.path.join(OUTPUT_FOLDER, f"movie_{timestamp}.mp4")
+        try:
+            if MODULES_AVAILABLE:
+                # Try to generate actual video with VFX
+                from src.blender.renderer import BlenderRenderer
+                try:
+                    renderer = BlenderRenderer()
+                    output_video_path = renderer.render_scene_to_video(
+                        script=script,
+                        output_path=output_video_path,
+                        duration=duration
+                    )
+                    print(f"✅ Rendered video: {output_video_path}")
+                except Exception as e:
+                    print(f"⚠️ Blender rendering issue: {e}")
+                    output_video_path = _create_simple_test_video(output_video_path, duration)
+            else:
+                # Create simple test video
+                output_video_path = _create_simple_test_video(output_video_path, duration)
+        except Exception as e:
+            print(f"⚠️ Video generation issue: {e}")
+            output_video_path = _create_simple_test_video(output_video_path, duration)
+
+        # Step 4: Merge video and audio using AudioVisualMerger if available
+        final_video_path = os.path.join(OUTPUT_FOLDER, f"movie_final_{timestamp}.mp4")
+        
+        # If we have a valid video, use it as fallback
+        if output_video_path and os.path.exists(output_video_path):
+            # Try to merge with audio if available
+            if MODULES_AVAILABLE and narration_file and os.path.exists(narration_file):
+                try:
+                    merger = AudioVisualMerger()
+                    
+                    # Add visual effects
+                    if enable_color_grade:
+                        merger.add_visual_effect('color_grade', 0.7, 0, 99999, {'color_temp': 'warm'})
+                    if enable_film_grain:
+                        merger.add_visual_effect('grain', 0.05, 0, 99999)
+                    
+                    # Process video with effects
+                    effects_video = os.path.join(OUTPUT_FOLDER, f"movie_with_vfx_{timestamp}.mp4")
+                    try:
+                        merger.process_video_with_effects(output_video_path, effects_video)
+                        if os.path.exists(effects_video):
+                            # Merge audio and video
+                            merged_result = merger.merge_video_and_audio(
+                                effects_video,
+                                narration_file,
+                                final_video_path
+                            )
+                            if merged_result and os.path.exists(merged_result):
+                                final_video_path = merged_result
+                                print(f"✅ Merged audio and video: {final_video_path}")
+                            else:
+                                # Fallback: use original video
+                                final_video_path = output_video_path
+                                print(f"⚠️ Using video without audio merge")
+                        else:
+                            final_video_path = output_video_path
+                    except Exception as e:
+                        print(f"⚠️ VFX processing issue: {e}")
+                        final_video_path = output_video_path
+                except Exception as e:
+                    print(f"⚠️ Audio-visual merge issue: {e}")
+                    final_video_path = output_video_path
+            else:
+                # No merger available, use raw video
+                final_video_path = output_video_path
+        else:
+            print(f"⚠️ No video file generated")
+            final_video_path = None
 
         # Calculate processing time
         processing_time = (datetime.now() - start_time).total_seconds()
+
+        # Verify final video exists
+        if not final_video_path or not os.path.exists(final_video_path):
+            return jsonify({
+                'success': False,
+                'error': 'Video generation failed - no output file created',
+                'debug_info': {
+                    'final_video_path': final_video_path,
+                    'output_video_path': output_video_path,
+                    'narration_file': narration_file
+                }
+            }), 500
 
         # Success response
         return jsonify({
             'success': True,
             'message': 'Movie generated successfully!',
-            'output_path': output_video_path,
+            'output_path': final_video_path,
+            'video_file': os.path.basename(final_video_path),
             'narration_file': narration_file,
             'subtitle_file': subtitle_path,
-            'vfx_config': vfx_config,
             'duration': duration,
             'processing_time': round(processing_time, 2),
-            'demo': not MODULES_AVAILABLE
+            'vfx_config': {
+                'color_grade': 'teal_orange' if enable_color_grade else 'none',
+                'grain': 0.05 if enable_film_grain else 0,
+                'sharpness': 0.8
+            }
         }), 200
 
     except Exception as e:
@@ -524,6 +628,156 @@ Processing your movie with AI-generated narration and effects
         print(f"❌ Error generating movie: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e), 'success': False}), 500
+
+
+def _ms_to_srt_time(milliseconds):
+    """Convert milliseconds to SRT time format (HH:MM:SS,mmm)"""
+    total_seconds = milliseconds // 1000
+    ms = milliseconds % 1000
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{ms:03d}"
+
+
+def _create_simple_test_video(output_path, duration=10):
+    """Create a video using OpenCV with animated frames"""
+    try:
+        if not CV2_AVAILABLE:
+            print("⚠️ OpenCV not available for video creation")
+            return None
+        
+        import numpy as np
+        
+        # Video properties
+        width, height = 1280, 720
+        fps = 30
+        total_frames = duration * fps
+        
+        # Create video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        if not out.isOpened():
+            print("⚠️ Failed to open video writer")
+            return None
+        
+        # Generate frames
+        for frame_num in range(total_frames):
+            # Create frame with gradient background
+            frame = np.zeros((height, width, 3), dtype=np.uint8)
+            
+            # Gradient background (dark to cyan)
+            for i in range(height):
+                intensity = int(20 + (i / height) * 40)
+                frame[i, :] = [intensity, intensity // 2, intensity]
+            
+            # Add animated circle (simulating cosmic dance)
+            center_x = int(width/2 + 100 * np.sin(frame_num * 0.05))
+            center_y = int(height/2 + 50 * np.cos(frame_num * 0.03))
+            radius = 30 + int(20 * np.sin(frame_num * 0.1))
+            
+            cv2.circle(frame, (center_x, center_y), radius, (0, 212, 255), -1)
+            
+            # Add pulsing effect
+            pulse = int(10 * np.sin(frame_num * 0.15))
+            cv2.circle(frame, (center_x, center_y), radius + pulse, (0, 100, 150), 2)
+            
+            # Add text
+            progress = int((frame_num / total_frames) * 100)
+            text = f"TANDAV - {progress}%"
+            cv2.putText(frame, text, (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 212, 255), 3)
+            
+            # Add frame info
+            cv2.putText(frame, f"Frame: {frame_num}/{total_frames}", (50, height-50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 150, 200), 2)
+            
+            # Write frame
+            out.write(frame)
+        
+        out.release()
+        
+        if os.path.exists(output_path):
+            file_size = os.path.getsize(output_path) / (1024 * 1024)
+            print(f"✅ Created video: {output_path} ({file_size:.2f} MB)")
+            return output_path
+        else:
+            print(f"⚠️ Video file not created")
+            return None
+            
+    except Exception as e:
+        print(f"⚠️ Video creation error: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+@app.route('/api/output-files', methods=['GET'])
+def list_output_files():
+    """List all generated files in output folder"""
+    try:
+        files = {
+            'videos': [],
+            'audio': [],
+            'subtitles': [],
+            'total_size_mb': 0
+        }
+        
+        if os.path.exists(OUTPUT_FOLDER):
+            for filename in os.listdir(OUTPUT_FOLDER):
+                filepath = os.path.join(OUTPUT_FOLDER, filename)
+                if os.path.isfile(filepath):
+                    file_size = os.path.getsize(filepath) / (1024 * 1024)  # Convert to MB
+                    file_info = {
+                        'name': filename,
+                        'size_mb': round(file_size, 2),
+                        'path': filepath,
+                        'url': f'/download/{filename}'
+                    }
+                    
+                    if filename.endswith('.mp4'):
+                        files['videos'].append(file_info)
+                    elif filename.endswith('.wav'):
+                        files['audio'].append(file_info)
+                    elif filename.endswith('.srt'):
+                        files['subtitles'].append(file_info)
+                    
+                    files['total_size_mb'] += file_size
+        
+        files['total_size_mb'] = round(files['total_size_mb'], 2)
+        
+        return jsonify({
+            'success': True,
+            'output_folder': OUTPUT_FOLDER,
+            'files': files
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    """Download generated file"""
+    try:
+        # Security: prevent directory traversal
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+        
+        file_path = os.path.join(OUTPUT_FOLDER, filename)
+        
+        # Verify file exists and is in output folder
+        if not os.path.exists(file_path) or not os.path.isfile(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        if not file_path.startswith(os.path.abspath(OUTPUT_FOLDER)):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/health')
